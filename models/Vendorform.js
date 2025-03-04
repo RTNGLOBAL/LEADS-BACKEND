@@ -13,6 +13,7 @@ const VendorSchema = new mongoose.Schema({
   selectedServices: { type: [String], required: true },
   additionalInfo: { type: String },
   agreeToTerms: { type: Boolean, required: true },
+  active: { type: Boolean, default: true },
   matchedBuyers: [
     {
       buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'Buyer' },

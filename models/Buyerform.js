@@ -16,7 +16,8 @@ const BuyerSchema = new mongoose.Schema({
   companySize: { type: String, required: true },
   industries: { type: [String], required: true }, // Change from single industry to multiple industries
   additionalInfo: { type: String },
-  services: { type: [ServiceSchema], required: true }
+  services: { type: [ServiceSchema], required: true },
+  active: { type: Boolean, default: true }
 }, {
   timestamps: true,
 });

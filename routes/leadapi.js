@@ -7,6 +7,109 @@ const Vendor = require('../models/Vendorform');
 const Buyer = require('../models/Buyerform');
 const sendEmail = require('../utils/email'); // Import sendEmail function
 
+// Add these email templates at the top of the file after the imports
+const sendLeadsAssignedEmail = async (vendor, leadsAdded) => {
+  const emailText = `
+    <html>
+      <body>
+        <h2>New Leads Added to Your Account</h2>
+        <p>Dear ${vendor.firstName} ${vendor.lastName},</p>
+        <p>We're pleased to inform you that ${leadsAdded} new leads have been added to your account.</p>
+        <p>Current lead balance: ${vendor.leads}</p>
+        <p>You can access these leads through your vendor dashboard at any time.</p>
+        <p>Best regards,</p>
+        <p>The Reachly Team</p>
+      </body>
+    </html>
+  `;
+  await sendEmail(vendor.email, 'New Leads Added to Your Account', emailText);
+};
+
+
+const sendMatchNotificationEmails = async (vendor, buyer) => {
+  // Email to vendor
+  const vendorEmailText = `
+    <html>
+      <body>
+        <h2>New Buyer Match Found!</h2>
+        <p>Dear ${vendor.firstName} ${vendor.lastName},</p>
+        <p>We've found a new potential match for your services:</p>
+        <ul>
+          <li>Company: ${buyer.companyName}</li>
+          <li>Industry: ${buyer.industries.join(', ')}</li>
+        </ul>
+        <p>Please log in to your dashboard to review this match and take action.</p>
+        <p>Best regards,</p>
+        <p>The Reachly Team</p>
+      </body>
+    </html>
+  `;
+
+  // Email to buyer
+  const buyerEmailText = `
+    <html>
+      <body>
+        <h2>New Vendor Match Found!</h2>
+        <p>Dear ${buyer.firstName} ${buyer.lastName},</p>
+        <p>We've matched you with a vendor that matches your requirements:</p>
+        <ul>
+          <li>Company: ${vendor.companyName}</li>
+          <li>Services: ${vendor.selectedServices.join(', ')}</li>
+        </ul>
+        <p>The vendor will review your profile and may reach out soon.</p>
+        <p>Best regards,</p>
+        <p>The Reachly Team</p>
+      </body>
+    </html>
+  `;
+
+  // Email to admin
+  const adminEmailText = `
+    <html>
+      <body>
+        <h2>New Match Created</h2>
+        <p>A new match has been created:</p>
+        <h3>Vendor Details:</h3>
+        <ul>
+          <li>Name: ${vendor.firstName} ${vendor.lastName}</li>
+          <li>Company: ${vendor.companyName}</li>
+          <li>Email: ${vendor.email}</li>
+        </ul>
+        <h3>Buyer Details:</h3>
+        <ul>
+          <li>Name: ${buyer.firstName} ${buyer.lastName}</li>
+          <li>Company: ${buyer.companyName}</li>
+          <li>Email: ${buyer.email}</li>
+        </ul>
+        <p>Best regards,</p>
+        <p>The Reachly Team</p>
+      </body>
+    </html>
+  `;
+
+  await Promise.all([
+    sendEmail(vendor.email, 'New Buyer Match Found', vendorEmailText),
+    sendEmail(buyer.email, 'New Vendor Match Found', buyerEmailText),
+    sendEmail('contact@reachly.ca', 'New Match Created - Admin Notification', adminEmailText)
+  ]);
+};
+
+const sendLeadsLowNotification = async (vendor) => {
+  const emailText = `
+    <html>
+      <body>
+        <h2>Low Leads Balance Alert</h2>
+        <p>Dear ${vendor.firstName} ${vendor.lastName},</p>
+        <p>Your leads balance is now at ${vendor.leads}. To ensure uninterrupted access to new matches, please purchase additional leads.</p>
+        <p>You can purchase more leads through your vendor dashboard.</p>
+        <p>Best regards,</p>
+        <p>The Reachly Team</p>
+      </body>
+    </html>
+  `;
+  await sendEmail(vendor.email, 'Low Leads Balance Alert', emailText);
+};
+
 // Endpoint to handle Vendor form submission
 router.post('/vendor', async (req, res) => {
   try {
@@ -30,7 +133,7 @@ router.post('/vendor', async (req, res) => {
         <body>
           <h2>Welcome to Reachly – Set Up Your Vendor Dashboard</h2>
           <p>Dear ${vendor.firstName} ${vendor.lastName},</p>
-          <p>Thank you for signing up with Reachly! We’re thrilled you’ve chosen us to help grow your business through high-quality, ready-to-buy leads. Your decision to work with us means you’re on the right path to predictable, scalable revenue.</p>
+          <p>Thank you for signing up with Reachly! We're thrilled you've chosen us to help grow your business through high-quality, ready-to-buy leads. Your decision to work with us means you're on the right path to predictable, scalable revenue.</p>
           <p>To get started, please set up your password and access your Vendor Dashboard, where you can:</p>
           <ul>
             <li>View your matched leads and their details</li>
@@ -59,8 +162,8 @@ router.post('/vendor', async (req, res) => {
       </ul>
       <p>As the admin, you are now responsible for reviewing the vendor's profile and assigning relevant leads to them. Please follow these next steps:</p>
     <ol>
-      <li>Log into the admin dashboard to access the vendor’s profile.</li>
-      <li>Review the matched leads that the platform has automatically assigned based on the vendor’s profile and preferences.</li>
+      <li>Log into the admin dashboard to access the vendor's profile.</li>
+      <li>Review the matched leads that the platform has automatically assigned based on the vendor's profile and preferences.</li>
       <li>Confirm the matched leads and ensure they are appropriate for the vendor.</li>
       <li>Assign the leads to the vendor so they can begin engaging with them through their dashboard.</li>
       <li>Verify that the vendor has proper access to their Vendor Dashboard and ensure their onboarding is complete.</li>
@@ -80,7 +183,7 @@ router.post('/vendor', async (req, res) => {
     // Respond to the client only after emails are sent
     res.status(201).send({ message: 'Request submitted. Please check your email for further instructions.' });
   } catch (error) {
-    // If there’s any error, respond with error message
+    // If there's any error, respond with error message
     res.status(400).send({ error: 'Error submitting vendor form', details: error.message });
   }
 });
@@ -107,17 +210,17 @@ router.post('/buyer', async (req, res) => {
         <body>
           <h2>Welcome to Reachly! Connect with Top SaaS Vendors</h2>
           <p>Dear ${buyer.firstName},</p>
-          <p>Thank you for signing up with Reachly! We’re excited to connect you with top SaaS vendors who can help elevate your business. By choosing Reachly, you gain direct access to pre-vetted solutions that align with your needs.</p>
+          <p>Thank you for signing up with Reachly! We're excited to connect you with top SaaS vendors who can help elevate your business. By choosing Reachly, you gain direct access to pre-vetted solutions that align with your needs.</p>
           <p>To get started, create your password and log in to your Buyer Dashboard, where you can:</p>
           <ul>
-            <li>View the vendors you’ve been matched with</li>
+            <li>View the vendors you've been matched with</li>
             <li>Access their contact details and proposals</li>
             <li>Track and manage your inquiries seamlessly</li>
           </ul>
           <p>Click below to create your password and access your dashboard:</p>
           <p><a href="https://www.reachly.ca/buyer-dashboard">Set Up My Buyer Dashboard</a></p>
-          <p>We’re here to make your SaaS vendor selection process easier, faster, and more effective. If you have any questions, feel free to reach out at <a href="mailto:support@reachly.ca">support@reachly.ca</a>.</p>
-          <p>We can’t wait to help you find the perfect solution!</p>
+          <p>We're here to make your SaaS vendor selection process easier, faster, and more effective. If you have any questions, feel free to reach out at <a href="mailto:support@reachly.ca">support@reachly.ca</a>.</p>
+          <p>We can't wait to help you find the perfect solution!</p>
           <p>The Reachly Team</p>
         </body>
       </html>
@@ -135,7 +238,7 @@ router.post('/buyer', async (req, res) => {
         <li><strong>Sign-Up Date:</strong> ${new Date().toLocaleDateString()}</li>
       </ul>
       <p>As the admin, please review the buyer's profile and ensure that their preferences and requirements are properly recorded. This will help to ensure they are matched with the most relevant vendors.</p>
-      <p>Once the buyer’s profile is reviewed, they will be automatically matched with the most suitable vendors based on their needs, and they can begin interacting with them via their Buyer Dashboard.</p>
+      <p>Once the buyer's profile is reviewed, they will be automatically matched with the most suitable vendors based on their needs, and they can begin interacting with them via their Buyer Dashboard.</p>
       <p>Best regards,</p>
       <p>The Reachly Team</p>
     </body>
@@ -264,6 +367,17 @@ router.get('/getdata', async (req, res) => {
       }
     });
 
+    // After finding matches, send notifications for new matches
+    for (const matchedVendor of matchedVendors) {
+      const vendor = matchedVendor.vendor;
+      for (const matchedBuyer of matchedVendor.matchedBuyers) {
+        const buyer = matchedBuyer.buyer;
+        
+        // Check if this is a new match (not already in vendor's matchedBuyers)
+        const existingMatch = vendor.matchedBuyers?.find(mb => mb.buyerEmail === buyer.email);
+      }
+    }
+
     // Send the response with total match counts
     res.send({
       buyer: {
@@ -301,6 +415,7 @@ router.put('/vendor/:vendorEmail/match/:buyerEmail', async (req, res) => {
 
     // Find if buyer is already in matchedBuyers list
     const matchIndex = vendor.matchedBuyers.findIndex(mb => mb.buyer._id.toString() === buyer._id.toString());
+    const isNewMatch = matchIndex === -1;
 
     // Handle lead deduction for 'accepted' status
     if (status === 'accepted') {
@@ -316,6 +431,11 @@ router.put('/vendor/:vendorEmail/match/:buyerEmail', async (req, res) => {
 
       // Deduct one lead for accepting the match
       vendor.leads -= 1;
+
+      // Send low leads notification if balance is low
+      if (vendor.leads <= 1) {
+        await sendLeadsLowNotification(vendor);
+      }
     }
 
     if (matchIndex !== -1) {
@@ -333,6 +453,9 @@ router.put('/vendor/:vendorEmail/match/:buyerEmail', async (req, res) => {
     }
 
     await vendor.save();
+
+    // Send match notification emails if this is a new match
+
     res.json({ 
       message: 'Match status updated successfully', 
       matchedBuyers: vendor.matchedBuyers,
@@ -340,7 +463,7 @@ router.put('/vendor/:vendorEmail/match/:buyerEmail', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error updating match status:', error); // Add error logging
+    console.error('Error updating match status:', error);
     res.status(500).json({ error: 'Error updating match status', details: error.message });
   }
 });
@@ -584,49 +707,46 @@ router.get('/getAllVendors', async function (req, res) {
   }
 });
 
-// get all buyers 
+// Update the getAllBuyers route
 router.get('/getAllBuyers', async function (req, res) {
   try {
     const buyers = await Buyer.find({});
-    const vendors = await Vendor.find({});
+    const vendors = await Vendor.find({}).populate('matchedBuyers.buyer');
+
     const buyerData = buyers.map((buyer) => {
-      const matchedVendors = vendors
-        .map((vendor) => {
-          const matchReasons = [];
+      // Find all vendors that have matched with this buyer
+      const matchedVendors = vendors.filter(vendor => 
+        vendor.matchedBuyers.some(mb => mb.buyerEmail === buyer.email)
+      ).map(vendor => {
+        const matchStatus = vendor.matchedBuyers.find(mb => mb.buyerEmail === buyer.email);
+        return {
+          vendor: {
+            _id: vendor._id,
+            companyName: vendor.companyName,
+            firstName: vendor.firstName,
+            lastName: vendor.lastName,
+            email: vendor.email,
+            selectedIndustries: vendor.selectedIndustries,
+            selectedServices: vendor.selectedServices
+          },
+          status: matchStatus ? matchStatus.status : 'pending'
+        };
+      });
 
-          // Check for industryMatch
-          const matchedIndustries = vendor.selectedIndustries.filter(
-            (industry) => buyer.industries.includes(industry)
-          );
-          if (matchedIndustries.length > 0) {
-            // Check for serviceMatch
-            const matchedServices = buyer.services
-              .filter((buyerService) =>
-                vendor.selectedServices.includes(buyerService.service) && buyerService.active
-
-
-              )
-              .map((matchedService) => matchedService.service);
-            if (matchedServices.length > 0) {
-              matchReasons.push(`industryMatch: ${matchedIndustries.join(', ')}`);
-              matchReasons.push(`serviceMatch: ${matchedServices.join(', ')}`);
-            }
-          }
-
-          if (matchReasons.length > 0) {
-            return {
-              vendor,
-              matchReasons,
-            };
-          }
-          return null;
-        })
-        .filter((match) => match !== null);
+      // Calculate vendor statistics
+      const acceptedVendors = matchedVendors.filter(mv => mv.status === 'accepted').length;
+      const rejectedVendors = matchedVendors.filter(mv => mv.status === 'rejected').length;
+      const pendingVendors = matchedVendors.filter(mv => !mv.status || mv.status === 'pending').length;
 
       return {
-        ...buyer.toObject(),
-        totalVendors: matchedVendors.length,
-        matchedVendors,
+        buyer: {
+          ...buyer.toObject(),
+          acceptedVendors,
+          rejectedVendors,
+          pendingVendors,
+          totalMatches: matchedVendors.length
+        },
+        matchedVendors
       };
     });
 
@@ -636,6 +756,7 @@ router.get('/getAllBuyers', async function (req, res) {
     res.status(500).send({ error: 'Error fetching buyers', details: error });
   }
 });
+
 
 // update vendor data
 router.put('/updateVendor/:email', async function (req, res) {
@@ -792,9 +913,12 @@ router.post('/addLeads/:email', async (req, res) => {
       return res.status(404).json({ error: 'Vendor not found' });
     }
 
-    // Add the new leads to the existing leads (or initialize to 0 if undefined)
-    vendor.leads = (vendor.leads || 0) + parseInt(leads);
+    const previousLeads = vendor.leads || 0;
+    vendor.leads = previousLeads + parseInt(leads);
     await vendor.save();
+
+    // Send email notification
+    await sendLeadsAssignedEmail(vendor, leads);
 
     res.json({ 
       message: 'Leads added successfully', 
